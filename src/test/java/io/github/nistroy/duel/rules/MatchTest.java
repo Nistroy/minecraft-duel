@@ -96,6 +96,18 @@ class MatchTest {
 	}
 
 	@Test
+	void cancelFinishesAsDrawAndIsIgnoredOnceFinished() {
+		Match match = match();
+		run(match, 60);
+
+		assertTrue(match.cancel());
+
+		assertEquals(new Result(null, null, Reason.CANCELLED), match.result().orElseThrow());
+		assertFalse(match.cancel());
+		assertFalse(match.defeat(bob, Reason.KNOCKED_OUT));
+	}
+
+	@Test
 	void defeatOfOutsiderIsRejected() {
 		Match match = match();
 

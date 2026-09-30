@@ -12,7 +12,7 @@ import java.util.UUID;
 public final class Match {
 	public enum Phase { COUNTDOWN, FIGHT, FINISHED }
 
-	public enum Reason { KNOCKED_OUT, FORFEIT, LEFT_ARENA, TIME_UP }
+	public enum Reason { KNOCKED_OUT, FORFEIT, LEFT_ARENA, TIME_UP, CANCELLED }
 
 	/** {@code winner} et {@code loser} nuls = égalité. */
 	public record Result(UUID winner, UUID loser, Reason reason) {
@@ -95,6 +95,15 @@ public final class Match {
 			return false;
 		}
 		finish(new Result(winner, loser, reason));
+		return true;
+	}
+
+	/** Arrêt par un admin : égalité. */
+	public boolean cancel() {
+		if (phase == Phase.FINISHED) {
+			return false;
+		}
+		finish(new Result(null, null, Reason.CANCELLED));
 		return true;
 	}
 
