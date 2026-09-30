@@ -6,10 +6,32 @@ base {
 	archivesName = project.archives_base_name
 }
 
+sourceSets {
+	gametest {
+		compileClasspath += main.compileClasspath + main.output
+		runtimeClasspath += main.runtimeClasspath + main.output
+	}
+}
+
 loom {
 	mods {
 		"duel" {
 			sourceSet sourceSets.main
+		}
+		"duel-gametest" {
+			sourceSet sourceSets.gametest
+		}
+	}
+
+	runs {
+		// Tests en jeu (faux joueurs) : ./gradlew runGametest, rapport dans build/gametest/junit.xml.
+		gametest {
+			server()
+			name "Game Test"
+			vmArg "-Dfabric-api.gametest"
+			vmArg "-Dfabric-api.gametest.report-file=${project.layout.buildDirectory.get()}/gametest/junit.xml"
+			runDir "build/gametest"
+			source sourceSets.gametest
 		}
 	}
 }
@@ -55,4 +77,9 @@ jar {
 	from(file("LICENSE")) {
 		rename { "${it}_${name}" }
 	}
+}
+
+// Console du serveur de dev utilisable (commandes /duel admin … depuis le terminal).
+tasks.named('runServer') {
+	standardInput = System.in
 }

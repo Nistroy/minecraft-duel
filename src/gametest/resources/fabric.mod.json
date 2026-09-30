@@ -1,0 +1,14 @@
+{
+	"schemaVersion": 1,
+	"id": "duel-gametest",
+	"version": "1.0.0",
+	"name": "Duel — tests en jeu",
+	"environment": "*",
+	"entrypoints": {
+		"fabric-gametest": ["io.github.nistroy.duel.gametest.DuelGameTests"]
+	},
+	"depends": {
+		"duel": "*",
+		"fabric-gametest-api-v1": "*"
+	}
+}
