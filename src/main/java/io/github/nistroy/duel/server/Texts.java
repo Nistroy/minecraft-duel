@@ -1,6 +1,9 @@
 package io.github.nistroy.duel.server;
 
+import io.github.nistroy.duel.config.DuelConfig;
+import io.github.nistroy.duel.config.DuelConfig.ArenaSpec;
 import io.github.nistroy.duel.rules.Match.Result;
+import java.util.stream.Stream;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
@@ -29,21 +32,34 @@ final class Texts {
 				.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal(hover))));
 	}
 
-	static Component challenge(String challenger) {
-		return info(challenger + " te défie en duel ! ")
+	/** « Molten Core, kit Chevalier » ou « Molten Core, ton équipement ». */
+	static String terms(String arena, String kit) {
+		return arena + ", " + (kit == null ? "chacun son équipement" : "kit " + kit);
+	}
+
+	static Component challenge(String challenger, String terms) {
+		return info(challenger + " te défie en duel (" + terms + ") ! ")
 				.append(button("Accepter", ChatFormatting.GREEN, "/duel accepter " + challenger, "Accepter le duel"))
 				.append(" ")
 				.append(button("Refuser", ChatFormatting.RED, "/duel refuser " + challenger, "Refuser le duel"));
 	}
 
-	static Component watch(String first, String second) {
-		return info(first + " et " + second + " s'affrontent en duel ! ")
+	static Component watch(String first, String second, String terms) {
+		return info(first + " et " + second + " s'affrontent en duel (" + terms + ") ! ")
 				.append(button("Regarder", ChatFormatting.AQUA, "/duel regarder", "Regarder en spectateur"));
 	}
 
 	static Component watching() {
 		return info("Tu regardes le duel, retour automatique à la fin. ")
 				.append(button("Quitter", ChatFormatting.GRAY, "/duel quitter", "Revenir où tu étais"));
+	}
+
+	/** Joueur sans le mod côté client : pas d'écran, la commande complète. */
+	static Component help(DuelConfig config) {
+		String arenas = String.join(", ", config.arenas().stream().map(ArenaSpec::id).toList());
+		String modes = String.join(", ", Stream.concat(Stream.of(DuelConfig.OWN_GEAR),
+				config.kits().stream().map(DuelConfig.KitSpec::id)).toList());
+		return info("/duel <joueur> [arène] [mode] — arènes : " + arenas + " ; modes : " + modes);
 	}
 
 	static Component result(Result result, String first, String second, String winner, String loser) {

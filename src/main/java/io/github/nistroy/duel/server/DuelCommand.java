@@ -4,12 +4,15 @@ import static net.minecraft.commands.Commands.argument;
 import static net.minecraft.commands.Commands.literal;
 
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
+import io.github.nistroy.duel.config.DuelConfig;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.commands.arguments.EntityArgument;
@@ -17,16 +20,20 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
 /**
- * {@code /duel <joueur>}, {@code accepter|refuser [joueur]}, {@code regarder}, {@code quitter} ;
- * {@code admin arene|stop} pour les ops (console comprise).
+ * {@code /duel} (écran si le mod est côté client, aide sinon), {@code /duel <joueur> [arène] [mode]},
+ * {@code accepter|refuser [joueur]}, {@code regarder}, {@code quitter} ; {@code admin arene <id>|stop}
+ * pour les ops (console comprise).
  */
 public final class DuelCommand {
 	private static final String PLAYER = "joueur";
+	private static final String ARENA = "arene";
+	private static final String MODE = "mode";
 
 	private DuelCommand() {
 	}
 
-	public static void register(CommandDispatcher<CommandSourceStack> dispatcher, Supplier<DuelService> service) {
+	public static void register(CommandDispatcher<CommandSourceStack> dispatcher, Supplier<DuelService> service,
+			Supplier<DuelConfig> config) {
 		SuggestionProvider<CommandSourceStack> challengers = (ctx, builder) -> {
 			ServerPlayer target = ctx.getSource().getPlayer();
 			if (target == null) {
@@ -39,8 +46,13 @@ public final class DuelCommand {
 					.toList();
 			return SharedSuggestionProvider.suggest(names, builder);
 		};
+		SuggestionProvider<CommandSourceStack> arenas = (ctx, builder) ->
+				SharedSuggestionProvider.suggest(config.get().arenas().stream().map(DuelConfig.ArenaSpec::id), builder);
+		SuggestionProvider<CommandSourceStack> modes = (ctx, builder) -> SharedSuggestionProvider.suggest(
+				Stream.concat(Stream.of(DuelConfig.OWN_GEAR), config.get().kits().stream().map(DuelConfig.KitSpec::id)), builder);
 
 		dispatcher.register(literal("duel")
+				.executes(ctx -> run(() -> service.get().openMenu(self(ctx))))
 				.then(literal("accepter")
 						.executes(ctx -> answerOnly(ctx, service.get(), true))
 						.then(argument(PLAYER, EntityArgument.player()).suggests(challengers)
@@ -55,11 +67,23 @@ public final class DuelCommand {
 						.executes(ctx -> run(() -> service.get().leave(self(ctx)))))
 				.then(literal("admin").requires(source -> source.hasPermission(2))
 						.then(literal("arene")
-								.executes(ctx -> reply(ctx, service.get().buildArena())))
+								.then(argument(ARENA, StringArgumentType.word()).suggests(arenas)
+										.executes(ctx -> reply(ctx, service.get().buildArena(StringArgumentType.getString(ctx, ARENA))))))
 						.then(literal("stop")
 								.executes(ctx -> reply(ctx, service.get().stop()))))
 				.then(argument(PLAYER, EntityArgument.player())
-						.executes(ctx -> run(() -> service.get().challenge(self(ctx), EntityArgument.getPlayer(ctx, PLAYER))))));
+						.executes(ctx -> challenge(ctx, service.get(), config.get().arenas().getFirst().id(), DuelConfig.OWN_GEAR))
+						.then(argument(ARENA, StringArgumentType.word()).suggests(arenas)
+								.executes(ctx -> challenge(ctx, service.get(), StringArgumentType.getString(ctx, ARENA), DuelConfig.OWN_GEAR))
+								.then(argument(MODE, StringArgumentType.word()).suggests(modes)
+										.executes(ctx -> challenge(ctx, service.get(), StringArgumentType.getString(ctx, ARENA),
+												StringArgumentType.getString(ctx, MODE)))))));
+	}
+
+	private static int challenge(CommandContext<CommandSourceStack> ctx, DuelService service, String arena, String mode)
+			throws CommandSyntaxException {
+		service.challenge(self(ctx), EntityArgument.getPlayer(ctx, PLAYER), arena, mode);
+		return 1;
 	}
 
 	/** Sans nom : le seul défi en attente ; plusieurs → il faut préciser. */

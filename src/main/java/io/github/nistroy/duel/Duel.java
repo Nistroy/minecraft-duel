@@ -1,8 +1,11 @@
 package io.github.nistroy.duel;
 
 import io.github.nistroy.duel.config.DuelConfig;
+import io.github.nistroy.duel.network.ArenaPreviewPayload;
+import io.github.nistroy.duel.network.MenuPayload;
 import io.github.nistroy.duel.server.DuelCommand;
 import io.github.nistroy.duel.server.DuelService;
+import io.github.nistroy.duel.server.Kits;
 import io.github.nistroy.duel.server.SnapshotStore;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -13,6 +16,7 @@ import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.Event;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.resources.ResourceLocation;
@@ -29,12 +33,19 @@ public final class Duel implements ModInitializer {
 	 */
 	private static final ResourceLocation BEFORE_OTHER_MODS = ResourceLocation.fromNamespaceAndPath(MOD_ID, "before_other_mods");
 
+	private static DuelConfig config;
 	private static DuelService service;
 
 	@Override
 	public void onInitialize() {
-		ServerLifecycleEvents.SERVER_STARTED.register(server -> service = new DuelService(server, loadConfig(),
-				new SnapshotStore(server.getWorldPath(LevelResource.ROOT).resolve(MOD_ID))));
+		PayloadTypeRegistry.playS2C().register(MenuPayload.TYPE, MenuPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(ArenaPreviewPayload.TYPE, ArenaPreviewPayload.CODEC);
+
+		ServerLifecycleEvents.SERVER_STARTING.register(server -> config = loadConfig());
+		ServerLifecycleEvents.SERVER_STARTED.register(server -> service = new DuelService(server, config,
+				new SnapshotStore(server.getWorldPath(LevelResource.ROOT).resolve(MOD_ID)),
+				new Kits(config.kits(), server.registryAccess()),
+				FabricLoader.getInstance().getConfigDir().resolve(MOD_ID).resolve("previews")));
 		ServerLifecycleEvents.SERVER_STOPPING.register(server -> service.onStopping());
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> service = null);
 		ServerTickEvents.END_SERVER_TICK.register(server -> service.tick());
@@ -49,7 +60,7 @@ public final class Duel implements ModInitializer {
 				(entity, source, amount) -> service == null || service.allowDeath(entity));
 
 		CommandRegistrationCallback.EVENT.register((dispatcher, registries, environment) ->
-				DuelCommand.register(dispatcher, () -> service));
+				DuelCommand.register(dispatcher, () -> service, () -> config));
 	}
 
 	/** Fichier absent → écrit avec les valeurs par défaut ; fichier invalide → erreur dans le log et défauts. */
