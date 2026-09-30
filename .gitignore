@@ -1,0 +1,12 @@
+# Gradle / IDE
+.gradle/
+build/
+run/
+out/
+bin/
+.idea/
+*.iml
+.vscode/
+logs/
+__pycache__/
+.DS_Store
