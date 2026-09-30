@@ -5,11 +5,16 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 /** Défis en attente, chacun valable {@code ttlTicks} ticks. Temps = compteur de ticks du serveur. */
 public final class Challenges {
-	public record Challenge(UUID challenger, UUID target, long deadline) {
+	/** Conditions du duel proposé : arène et kit ({@code kit} nul = chacun son équipement). */
+	public record Terms(String arena, String kit) {
+	}
+
+	public record Challenge(UUID challenger, UUID target, long deadline, Terms terms) {
 	}
 
 	private record Key(UUID challenger, UUID target) {
@@ -22,16 +27,17 @@ public final class Challenges {
 		this.ttlTicks = ttlTicks;
 	}
 
-	public void add(UUID challenger, UUID target, long now) {
+	/** Un nouveau défi vers la même personne remplace l'ancien (conditions et échéance). */
+	public void add(UUID challenger, UUID target, long now, Terms terms) {
 		Key key = new Key(challenger, target);
 		pending.remove(key);
-		pending.put(key, new Challenge(challenger, target, now + ttlTicks));
+		pending.put(key, new Challenge(challenger, target, now + ttlTicks, terms));
 	}
 
 	/** Consomme le défi de {@code challenger} vers {@code target} s'il est encore valable. */
-	public boolean accept(UUID target, UUID challenger, long now) {
+	public Optional<Challenge> accept(UUID target, UUID challenger, long now) {
 		Challenge challenge = pending.remove(new Key(challenger, target));
-		return challenge != null && now < challenge.deadline();
+		return challenge != null && now < challenge.deadline() ? Optional.of(challenge) : Optional.empty();
 	}
 
 	public boolean decline(UUID target, UUID challenger) {
