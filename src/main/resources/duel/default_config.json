@@ -1,0 +1,72 @@
+{
+  "arenas": [
+    {
+      "id": "molten_core",
+      "name": "Molten Core",
+      "structure": "duel:molten_core",
+      "originX": -73, "originY": 0, "originZ": -67,
+      "first": {"x": -9.5, "y": 66, "z": 0.5, "yaw": -90, "pitch": 0},
+      "second": {"x": 10.5, "y": 66, "z": 0.5, "yaw": 90, "pitch": 0},
+      "spectator": {"x": 7.5, "y": 82, "z": 28.5, "yaw": 166, "pitch": 29},
+      "centerX": 0.5, "centerZ": 0.5, "radius": 75, "minY": 0
+    }
+  ],
+  "kits": [
+    {
+      "id": "chevalier",
+      "name": "Chevalier",
+      "icon": "minecraft:diamond_sword",
+      "items": [
+        {"slot": "head", "item": {"id": "minecraft:diamond_helmet", "components": {"minecraft:enchantments": {"levels": {"minecraft:protection": 2}}}}},
+        {"slot": "chest", "item": {"id": "minecraft:diamond_chestplate", "components": {"minecraft:enchantments": {"levels": {"minecraft:protection": 2}}}}},
+        {"slot": "legs", "item": {"id": "minecraft:diamond_leggings", "components": {"minecraft:enchantments": {"levels": {"minecraft:protection": 2}}}}},
+        {"slot": "feet", "item": {"id": "minecraft:diamond_boots", "components": {"minecraft:enchantments": {"levels": {"minecraft:protection": 2}}}}},
+        {"slot": "offhand", "item": {"id": "minecraft:shield"}},
+        {"slot": "0", "item": {"id": "minecraft:diamond_sword", "components": {"minecraft:enchantments": {"levels": {"minecraft:sharpness": 2}}}}},
+        {"slot": "1", "item": {"id": "minecraft:bow"}},
+        {"slot": "2", "item": {"id": "minecraft:golden_apple", "count": 3}},
+        {"slot": "3", "item": {"id": "minecraft:cooked_beef", "count": 16}},
+        {"slot": "9", "item": {"id": "minecraft:arrow", "count": 16}}
+      ]
+    },
+    {
+      "id": "archer",
+      "name": "Archer",
+      "icon": "minecraft:bow",
+      "items": [
+        {"slot": "head", "item": {"id": "minecraft:chainmail_helmet", "components": {"minecraft:enchantments": {"levels": {"minecraft:protection": 1}}}}},
+        {"slot": "chest", "item": {"id": "minecraft:chainmail_chestplate", "components": {"minecraft:enchantments": {"levels": {"minecraft:protection": 1}}}}},
+        {"slot": "legs", "item": {"id": "minecraft:chainmail_leggings", "components": {"minecraft:enchantments": {"levels": {"minecraft:protection": 1}}}}},
+        {"slot": "feet", "item": {"id": "minecraft:chainmail_boots", "components": {"minecraft:enchantments": {"levels": {"minecraft:protection": 1}}}}},
+        {"slot": "0", "item": {"id": "minecraft:bow", "components": {"minecraft:enchantments": {"levels": {"minecraft:power": 3, "minecraft:punch": 1}}}}},
+        {"slot": "1", "item": {"id": "minecraft:iron_sword"}},
+        {"slot": "2", "item": {"id": "minecraft:golden_apple", "count": 2}},
+        {"slot": "3", "item": {"id": "minecraft:cooked_beef", "count": 16}},
+        {"slot": "9", "item": {"id": "minecraft:arrow", "count": 64}}
+      ]
+    },
+    {
+      "id": "netherite",
+      "name": "Netherite",
+      "icon": "minecraft:netherite_chestplate",
+      "items": [
+        {"slot": "head", "item": {"id": "minecraft:netherite_helmet", "components": {"minecraft:enchantments": {"levels": {"minecraft:protection": 4, "minecraft:unbreaking": 3}}}}},
+        {"slot": "chest", "item": {"id": "minecraft:netherite_chestplate", "components": {"minecraft:enchantments": {"levels": {"minecraft:protection": 4, "minecraft:unbreaking": 3}}}}},
+        {"slot": "legs", "item": {"id": "minecraft:netherite_leggings", "components": {"minecraft:enchantments": {"levels": {"minecraft:protection": 4, "minecraft:unbreaking": 3}}}}},
+        {"slot": "feet", "item": {"id": "minecraft:netherite_boots", "components": {"minecraft:enchantments": {"levels": {"minecraft:protection": 4, "minecraft:unbreaking": 3}}}}},
+        {"slot": "offhand", "item": {"id": "minecraft:shield"}},
+        {"slot": "0", "item": {"id": "minecraft:netherite_sword", "components": {"minecraft:enchantments": {"levels": {"minecraft:sharpness": 5}}}}},
+        {"slot": "1", "item": {"id": "minecraft:netherite_axe"}},
+        {"slot": "2", "item": {"id": "minecraft:bow", "components": {"minecraft:enchantments": {"levels": {"minecraft:power": 5, "minecraft:infinity": 1}}}}},
+        {"slot": "3", "item": {"id": "minecraft:golden_apple", "count": 6}},
+        {"slot": "4", "item": {"id": "minecraft:splash_potion", "count": 2, "components": {"minecraft:potion_contents": {"potion": "minecraft:strong_healing"}}}},
+        {"slot": "5", "item": {"id": "minecraft:cooked_beef", "count": 16}},
+        {"slot": "9", "item": {"id": "minecraft:arrow"}}
+      ]
+    }
+  ],
+  "countdownSeconds": 3,
+  "maxDurationSeconds": 300,
+  "challengeSeconds": 60,
+  "endPauseSeconds": 4
+}
