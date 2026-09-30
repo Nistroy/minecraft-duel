@@ -1,16 +1,20 @@
 package io.github.nistroy.duel.gametest;
 
 import com.mojang.authlib.GameProfile;
+import io.github.nistroy.duel.config.DuelConfig;
+import io.github.nistroy.duel.server.Kits;
 import io.github.nistroy.duel.server.PlayerSnapshots;
 import java.util.UUID;
 import net.fabricmc.fabric.api.entity.FakePlayer;
 import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -71,6 +75,41 @@ public final class DuelGameTests implements FabricGameTest {
 		helper.assertTrue(player.gameMode.getGameModeForPlayer() == GameType.SURVIVAL, "mode de jeu rendu");
 		helper.assertTrue(player.position().distanceTo(before) < 0.01, "position rendue, lue : " + player.position());
 		helper.assertTrue(player.getYRot() == 30f, "orientation rendue");
+		helper.succeed();
+	}
+
+	private static Kits defaultKits(GameTestHelper helper) {
+		return new Kits(DuelConfig.DEFAULT.kits(), helper.getLevel().registryAccess());
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void defaultKitsDecodeWithEnchantments(GameTestHelper helper) {
+		Kits kits = defaultKits(helper);
+
+		helper.assertTrue(kits.all().size() == DuelConfig.DEFAULT.kits().size(), "aucun kit par défaut écarté");
+		ItemStack sword = kits.get("netherite").orElseThrow().items().stream()
+				.map(Kits.Placed::stack).filter(s -> s.is(Items.NETHERITE_SWORD)).findFirst().orElseThrow();
+		int sharpness = sword.getEnchantments().getLevel(
+				helper.getLevel().registryAccess().registryOrThrow(Registries.ENCHANTMENT)
+						.getHolderOrThrow(Enchantments.SHARPNESS));
+		helper.assertTrue(sharpness == 5, "Tranchant V, lu : " + sharpness);
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void kitReplacesWholeInventory(GameTestHelper helper) {
+		FakePlayer player = player(helper);
+		player.getInventory().setItem(0, new ItemStack(Items.STONE, 12));
+		player.getInventory().setItem(20, new ItemStack(Items.DIAMOND, 5));
+		player.setItemSlot(EquipmentSlot.HEAD, new ItemStack(Items.LEATHER_HELMET));
+
+		Kits.equip(player, defaultKits(helper).get("chevalier").orElseThrow());
+
+		helper.assertTrue(player.getItemBySlot(EquipmentSlot.HEAD).is(Items.DIAMOND_HELMET), "casque du kit");
+		helper.assertTrue(player.getItemBySlot(EquipmentSlot.OFFHAND).is(Items.SHIELD), "bouclier en seconde main");
+		helper.assertTrue(player.getInventory().getItem(0).is(Items.DIAMOND_SWORD), "épée en case 0");
+		helper.assertTrue(player.getInventory().getItem(20).isEmpty(), "diamants d'avant retirés");
+		helper.assertTrue(player.getInventory().countItem(Items.STONE) == 0, "pierres d'avant retirées");
 		helper.succeed();
 	}
 }
