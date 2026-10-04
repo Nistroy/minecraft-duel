@@ -2,8 +2,13 @@ package io.github.nistroy.duel.gametest;
 
 import com.mojang.authlib.GameProfile;
 import io.github.nistroy.duel.config.DuelConfig;
+import io.github.nistroy.duel.server.DuelService;
 import io.github.nistroy.duel.server.Kits;
 import io.github.nistroy.duel.server.PlayerSnapshots;
+import io.github.nistroy.duel.server.SnapshotStore;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.UUID;
 import net.fabricmc.fabric.api.entity.FakePlayer;
 import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
@@ -110,6 +115,30 @@ public final class DuelGameTests implements FabricGameTest {
 		helper.assertTrue(player.getInventory().getItem(0).is(Items.DIAMOND_SWORD), "épée en case 0");
 		helper.assertTrue(player.getInventory().getItem(20).isEmpty(), "diamants d'avant retirés");
 		helper.assertTrue(player.getInventory().countItem(Items.STONE) == 0, "pierres d'avant retirées");
+		helper.succeed();
+	}
+
+	/**
+	 * Régression du crash du 2026-10-04 : JOIN part avant que PlayerList.placeNewPlayer ajoute le joueur
+	 * à son monde. Le renvoyer là le met dans deux mondes (« UUID of added entity already exists »),
+	 * puis le serveur plante à sa déconnexion suivante (DistanceManager.removePlayer).
+	 */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void joinLeavesRestoreForLaterTick(GameTestHelper helper) throws IOException {
+		FakePlayer player = player(helper);
+		Vec3 before = player.position();
+		Path dir = Files.createTempDirectory("duel-gametest");
+		SnapshotStore store = new SnapshotStore(dir);
+		store.save(player.getUUID(), PlayerSnapshots.capture(player));
+		player.moveTo(before.x + 20, before.y + 5, before.z);
+		Vec3 inArena = player.position();
+		DuelService service = new DuelService(helper.getLevel().getServer(), DuelConfig.DEFAULT, store,
+				defaultKits(helper), dir.resolve("previews"));
+
+		service.onJoin(player);
+
+		helper.assertTrue(player.position().distanceTo(inArena) < 0.01, "pas de retour pendant JOIN, position lue : " + player.position());
+		helper.assertTrue(store.has(player.getUUID()), "état d'avant duel gardé jusqu'au retour");
 		helper.succeed();
 	}
 }
