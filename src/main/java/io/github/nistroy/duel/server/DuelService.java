@@ -375,6 +375,8 @@ public final class DuelService {
 			return;
 		}
 
+		DuelSounds.playStart(challenger);
+		DuelSounds.playStart(target);
 		names.put(challenger.getUUID(), challenger.getGameProfile().getName());
 		names.put(target.getUUID(), target.getGameProfile().getName());
 		match = new Match(challenger.getUUID(), target.getUUID(),
