@@ -13,6 +13,8 @@ Mod Fabric pour Minecraft 1.21.1 : des duels entre joueurs dans une arène à pa
   spectateur au-dessus de l'arène.
 - En entrant dans l'arène : PV et faim au maximum, effets retirés. Les duellistes passent en mode
   aventure (on se bat, mais sans poser ni casser de blocs).
+- Les deux duellistes entendent « It's you and me » (réplique de Valorant) en entrant dans l'arène.
+  Le volume se règle avec le curseur « Voix » des options de son (mod requis côté client).
 - Compte à rebours de 3 secondes, puis combat. Le coup fatal ne tue pas : il fait perdre le duel.
   Pas de KO, pas de tombe, rien ne tombe par terre. Sortir de l'arène, c'est aussi perdre.
 - À la fin, tout le monde retrouve exactement son état d'avant, puis revient à sa place :
