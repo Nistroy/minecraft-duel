@@ -3,8 +3,10 @@
 	"id": "duel",
 	"version": "${version}",
 	"name": "Duel",
-	"description": "Duels entre joueurs dans une arène à part : pas de vraie mort, inventaire rendu à la fin, spectateurs sans influence.",
-	"authors": ["nistroy"],
+	"description": "Duels entre joueurs dans une arène à part : écran de choix (adversaire, arène, kit), pas de vraie mort, inventaire rendu à la fin, spectateurs sans influence.",
+	"authors": [
+		"nistroy"
+	],
 	"contact": {
 		"sources": "https://github.com/Nistroy/minecraft-duel",
 		"issues": "https://github.com/Nistroy/minecraft-duel/issues"
@@ -12,7 +14,12 @@
 	"license": "GPL-3.0-only",
 	"environment": "*",
 	"entrypoints": {
-		"main": ["io.github.nistroy.duel.Duel"]
+		"main": [
+			"io.github.nistroy.duel.Duel"
+		],
+		"client": [
+			"io.github.nistroy.duel.client.DuelClient"
+		]
 	},
 	"depends": {
 		"fabricloader": ">=0.19.5",

@@ -1,7 +1,7 @@
 package io.github.nistroy.duel.server;
 
 import io.github.nistroy.duel.Duel;
-import io.github.nistroy.duel.config.DuelConfig;
+import io.github.nistroy.duel.config.DuelConfig.ArenaSpec;
 import io.github.nistroy.duel.config.DuelConfig.Spot;
 import java.util.ArrayList;
 import java.util.List;
@@ -16,7 +16,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 
-/** Dimension vide {@code duel:arena} (datapack du mod) où l'arène est posée une fois pour toutes. */
+/** Dimension vide {@code duel:arena} (datapack du mod) où chaque arène est posée une fois pour toutes, à sa place. */
 public final class Arena {
 	public static final ResourceKey<Level> DIMENSION =
 			ResourceKey.create(Registries.DIMENSION, ResourceLocation.fromNamespaceAndPath(Duel.MOD_ID, "arena"));
@@ -37,8 +37,8 @@ public final class Arena {
 	}
 
 	/** Arène posée = du sol sous les deux points de départ (sinon chute dans le vide dès l'arrivée). */
-	public static boolean isBuilt(ServerLevel level, DuelConfig config) {
-		return hasFloor(level, config.first()) && hasFloor(level, config.second());
+	public static boolean isBuilt(ServerLevel level, ArenaSpec arena) {
+		return hasFloor(level, arena.first()) && hasFloor(level, arena.second());
 	}
 
 	private static boolean hasFloor(ServerLevel level, Spot spot) {

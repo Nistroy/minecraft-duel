@@ -1,7 +1,9 @@
 package io.github.nistroy.duel.server;
 
 import io.github.nistroy.duel.config.DuelConfig;
+import io.github.nistroy.duel.config.DuelConfig.ArenaSpec;
 import io.github.nistroy.duel.config.DuelConfig.Spot;
+import io.github.nistroy.duel.network.MenuPayload;
 import io.github.nistroy.duel.rules.Challenges;
 import io.github.nistroy.duel.rules.Match;
 import io.github.nistroy.duel.rules.Match.Event;
@@ -9,6 +11,7 @@ import io.github.nistroy.duel.rules.Match.Phase;
 import io.github.nistroy.duel.rules.Match.Reason;
 import io.github.nistroy.duel.rules.Match.Result;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -52,22 +55,56 @@ public final class DuelService {
 	private final MinecraftServer server;
 	private final DuelConfig config;
 	private final SnapshotStore store;
+	private final Kits kits;
+	private final DuelMenu menu;
 	private final Challenges challenges;
 	private final Set<UUID> spectators = new LinkedHashSet<>();
 	private final Map<UUID, String> names = new HashMap<>();
 	private Match match;
+	/** Arène et kit (nul = chacun son équipement) du duel en cours. */
+	private ArenaSpec arena;
+	private Kits.Kit kit;
 	private ArenaBuilder builder;
 
-	public DuelService(MinecraftServer server, DuelConfig config, SnapshotStore store) {
+	public DuelService(MinecraftServer server, DuelConfig config, SnapshotStore store, Kits kits, Path previewDir) {
 		this.server = server;
 		this.config = config;
 		this.store = store;
+		this.kits = kits;
+		this.menu = new DuelMenu(config, kits, previewDir);
 		this.challenges = new Challenges(config.challengeTicks());
 	}
 
 	// --- Commandes -------------------------------------------------------------------------------
 
-	public void challenge(ServerPlayer challenger, ServerPlayer target) {
+	/** Sans le mod côté client : aide dans le chat. */
+	public void openMenu(ServerPlayer player) {
+		if (!menu.canOpen(player)) {
+			player.sendSystemMessage(Texts.help(config));
+			return;
+		}
+		List<MenuPayload.Opponent> opponents = server.getPlayerList().getPlayers().stream()
+				.filter(other -> other != player)
+				.map(other -> new MenuPayload.Opponent(other.getUUID(), other.getGameProfile().getName(),
+						unavailable(other, false).isPresent()))
+				.toList();
+		String running = match == null || match.phase() == Phase.FINISHED ? ""
+				: nameOf(match.first()) + " contre " + nameOf(match.second());
+		menu.open(player, opponents, running);
+	}
+
+	/** @param mode {@link DuelConfig#OWN_GEAR} ou identifiant de kit */
+	public void challenge(ServerPlayer challenger, ServerPlayer target, String arenaId, String mode) {
+		Optional<ArenaSpec> chosenArena = config.arena(arenaId);
+		if (chosenArena.isEmpty()) {
+			challenger.sendSystemMessage(Texts.error("Arène inconnue : " + arenaId));
+			return;
+		}
+		Optional<Kits.Kit> chosenKit = mode.equals(DuelConfig.OWN_GEAR) ? Optional.empty() : kits.get(mode);
+		if (!mode.equals(DuelConfig.OWN_GEAR) && chosenKit.isEmpty()) {
+			challenger.sendSystemMessage(Texts.error("Mode inconnu : " + mode));
+			return;
+		}
 		if (challenger == target) {
 			challenger.sendSystemMessage(Texts.error("Tu ne peux pas te défier toi-même."));
 			return;
@@ -77,19 +114,22 @@ public final class DuelService {
 			challenger.sendSystemMessage(Texts.error(problem.get()));
 			return;
 		}
-		challenges.add(challenger.getUUID(), target.getUUID(), now());
+		challenges.add(challenger.getUUID(), target.getUUID(), now(),
+				new Challenges.Terms(chosenArena.get().id(), chosenKit.map(Kits.Kit::id).orElse(null)));
+		String terms = Texts.terms(chosenArena.get().name(), chosenKit.map(Kits.Kit::name).orElse(null));
 		challenger.sendSystemMessage(Texts.info("Défi envoyé à " + target.getGameProfile().getName()
-				+ " (" + config.challengeSeconds() + " s pour accepter)."));
-		target.sendSystemMessage(Texts.challenge(challenger.getGameProfile().getName()));
+				+ " (" + terms + ", " + config.challengeSeconds() + " s pour accepter)."));
+		target.sendSystemMessage(Texts.challenge(challenger.getGameProfile().getName(), terms));
 		target.playNotifySound(SoundEvents.NOTE_BLOCK_BELL.value(), SoundSource.PLAYERS, 1f, 1f);
 	}
 
 	public void accept(ServerPlayer target, ServerPlayer challenger) {
-		if (!challenges.accept(target.getUUID(), challenger.getUUID(), now())) {
+		Optional<Challenges.Challenge> challenge = challenges.accept(target.getUUID(), challenger.getUUID(), now());
+		if (challenge.isEmpty()) {
 			target.sendSystemMessage(Texts.error("Aucun défi de " + challenger.getGameProfile().getName() + " en attente."));
 			return;
 		}
-		start(challenger, target);
+		start(challenger, target, challenge.get().terms());
 	}
 
 	public void decline(ServerPlayer target, ServerPlayer challenger) {
@@ -124,7 +164,7 @@ public final class DuelService {
 		}
 		spectators.add(player.getUUID());
 		prepareForTravel(player);
-		Arena.teleport(player, Arena.level(server), config.spectator());
+		Arena.teleport(player, Arena.level(server), arena.spectator());
 		player.setGameMode(GameType.SPECTATOR);
 		player.sendSystemMessage(Texts.watching());
 	}
@@ -141,18 +181,22 @@ public final class DuelService {
 		}
 	}
 
-	public Component buildArena() {
+	public Component buildArena(String arenaId) {
 		if (match != null || builder != null) {
 			return Texts.error("Impossible pendant un duel ou une construction.");
 		}
-		ResourceLocation id = ResourceLocation.parse(config.structure());
+		Optional<ArenaSpec> spec = config.arena(arenaId);
+		if (spec.isEmpty()) {
+			return Texts.error("Arène inconnue : " + arenaId);
+		}
+		ResourceLocation id = ResourceLocation.parse(spec.get().structure());
 		Optional<StructureTemplate> template = server.getStructureManager().get(id);
 		if (template.isEmpty()) {
 			return Texts.error("Structure " + id + " introuvable : fichier attendu dans <monde>/generated/"
 					+ id.getNamespace() + "/structures/" + id.getPath() + ".nbt");
 		}
 		builder = new ArenaBuilder(Arena.level(server), template.get(),
-				new BlockPos(config.originX(), config.originY(), config.originZ()));
+				new BlockPos(spec.get().originX(), spec.get().originY(), spec.get().originZ()));
 		LOG.info("Pose de l'arène {} : {} tranches", id, builder.total());
 		return Texts.info("Pose de l'arène en " + builder.total() + " tranches (1 par tick)…");
 	}
@@ -219,7 +263,7 @@ public final class DuelService {
 		if (match.phase() != Phase.FINISHED) {
 			for (UUID id : List.of(match.first(), match.second())) {
 				ServerPlayer player = server.getPlayerList().getPlayer(id);
-				if (player != null && (!Arena.contains(player) || config.isOutside(player.getX(), player.getY(), player.getZ()))) {
+				if (player != null && (!Arena.contains(player) || arena.isOutside(player.getX(), player.getY(), player.getZ()))) {
 					defeat(id, Reason.LEFT_ARENA);
 					break;
 				}
@@ -241,6 +285,7 @@ public final class DuelService {
 		UUID id = player.getUUID();
 		challenges.removeInvolving(id);
 		spectators.remove(id);
+		menu.forget(id);
 		if (isDuelist(id) && match.phase() != Phase.FINISHED) {
 			defeat(id, Reason.FORFEIT);
 		}
@@ -256,24 +301,32 @@ public final class DuelService {
 		}
 		spectators.clear();
 		match = null;
+		arena = null;
+		kit = null;
 		builder = null;
 	}
 
 	// --- Déroulement -----------------------------------------------------------------------------
 
-	private void start(ServerPlayer challenger, ServerPlayer target) {
+	private void start(ServerPlayer challenger, ServerPlayer target, Challenges.Terms terms) {
 		if (match != null) {
 			challenger.sendSystemMessage(Texts.error("Un duel est déjà en cours."));
 			target.sendSystemMessage(Texts.error("Un duel est déjà en cours, attends la fin."));
 			return;
 		}
+		// Config relue au démarrage : l'arène ou le kit du défi a pu disparaître entre-temps.
+		Optional<ArenaSpec> chosenArena = config.arena(terms.arena());
+		Optional<Kits.Kit> chosenKit = terms.kit() == null ? Optional.empty() : kits.get(terms.kit());
 		Optional<String> problem = unavailable(challenger, false).or(() -> unavailable(target, false));
-		ServerLevel arena = Arena.level(server);
-		if (problem.isEmpty() && builder != null) {
-			problem = Optional.of("L'arène est en cours de construction.");
+		ServerLevel level = Arena.level(server);
+		if (problem.isEmpty() && (chosenArena.isEmpty() || (terms.kit() != null && chosenKit.isEmpty()))) {
+			problem = Optional.of("Arène ou kit du défi introuvable.");
 		}
-		if (problem.isEmpty() && !Arena.isBuilt(arena, config)) {
-			problem = Optional.of("L'arène n'est pas construite (admin : /duel admin arene).");
+		if (problem.isEmpty() && builder != null) {
+			problem = Optional.of("Une arène est en cours de construction.");
+		}
+		if (problem.isEmpty() && !Arena.isBuilt(level, chosenArena.get())) {
+			problem = Optional.of("L'arène n'est pas construite (admin : /duel admin arene " + terms.arena() + ").");
 		}
 		if (problem.isPresent()) {
 			challenger.sendSystemMessage(Texts.error(problem.get()));
@@ -292,15 +345,19 @@ public final class DuelService {
 			return;
 		}
 
-		Arena.clearEntities(arena);
-		enter(challenger, arena, config.first());
-		enter(target, arena, config.second());
+		arena = chosenArena.get();
+		kit = chosenKit.orElse(null);
+		Arena.clearEntities(level);
+		enter(challenger, level, arena.first());
+		enter(target, level, arena.second());
 		if (!Arena.contains(challenger) || !Arena.contains(target)) {
 			// Téléportation refusée (joueur KO Hardcore Revival, par exemple) : on rend tout.
 			restore(challenger);
 			restore(target);
 			challenger.sendSystemMessage(Texts.error("Téléportation dans l'arène impossible, duel annulé."));
 			target.sendSystemMessage(Texts.error("Téléportation dans l'arène impossible, duel annulé."));
+			arena = null;
+			kit = null;
 			return;
 		}
 
@@ -308,7 +365,8 @@ public final class DuelService {
 		names.put(target.getUUID(), target.getGameProfile().getName());
 		match = new Match(challenger.getUUID(), target.getUUID(),
 				config.countdownTicks(), config.maxDurationTicks(), config.endPauseTicks());
-		Component watch = Texts.watch(challenger.getGameProfile().getName(), target.getGameProfile().getName());
+		Component watch = Texts.watch(challenger.getGameProfile().getName(), target.getGameProfile().getName(),
+				Texts.terms(arena.name(), kit == null ? null : kit.name()));
 		for (ServerPlayer other : server.getPlayerList().getPlayers()) {
 			if (other != challenger && other != target) {
 				other.sendSystemMessage(watch);
@@ -317,10 +375,13 @@ public final class DuelService {
 		LOG.info("Duel {} contre {}", challenger.getGameProfile().getName(), target.getGameProfile().getName());
 	}
 
-	/** Entrée en arène : PV, faim et armure au maximum, effets retirés, mode aventure (pas de blocs). */
-	private void enter(ServerPlayer player, ServerLevel arena, Spot spot) {
+	/**
+	 * Entrée en arène : PV et faim au maximum, effets retirés, mode aventure (pas de blocs). Équipement
+	 * perso → armure réparée ; kit → tout l'équipement remplacé par le kit.
+	 */
+	private void enter(ServerPlayer player, ServerLevel level, Spot spot) {
 		prepareForTravel(player);
-		Arena.teleport(player, arena, spot);
+		Arena.teleport(player, level, spot);
 		player.removeAllEffects();
 		player.clearFire();
 		player.resetFallDistance();
@@ -328,10 +389,14 @@ public final class DuelService {
 		player.setHealth(player.getMaxHealth());
 		player.getFoodData().setFoodLevel(20);
 		player.getFoodData().setSaturation(5f);
-		for (EquipmentSlot slot : ARMOR) {
-			ItemStack armor = player.getItemBySlot(slot);
-			if (armor.isDamageableItem()) {
-				armor.setDamageValue(0);
+		if (kit != null) {
+			Kits.equip(player, kit);
+		} else {
+			for (EquipmentSlot slot : ARMOR) {
+				ItemStack armor = player.getItemBySlot(slot);
+				if (armor.isDamageableItem()) {
+					armor.setDamageValue(0);
+				}
 			}
 		}
 		player.setGameMode(GameType.ADVENTURE);
@@ -382,6 +447,8 @@ public final class DuelService {
 		participants.addAll(spectators);
 		spectators.clear();
 		match = null;
+		arena = null;
+		kit = null;
 		names.clear();
 		for (UUID id : participants) {
 			ServerPlayer player = server.getPlayerList().getPlayer(id);
@@ -403,7 +470,7 @@ public final class DuelService {
 	}
 
 	private void tickSpectators() {
-		ServerLevel arena = Arena.level(server);
+		ServerLevel level = Arena.level(server);
 		for (UUID id : List.copyOf(spectators)) {
 			ServerPlayer player = server.getPlayerList().getPlayer(id);
 			if (player == null) {
@@ -412,8 +479,8 @@ public final class DuelService {
 				// Parti par le menu spectateur (téléportation vers un joueur) : fin du visionnage.
 				spectators.remove(id);
 				restore(player);
-			} else if (player.getY() < config.minY() - SPECTATOR_FLOOR_MARGIN) {
-				Arena.teleport(player, arena, config.spectator());
+			} else if (player.getY() < arena.minY() - SPECTATOR_FLOOR_MARGIN) {
+				Arena.teleport(player, level, arena.spectator());
 			}
 		}
 	}
