@@ -54,8 +54,11 @@ Docs `.md` = notes denses pour agents, sauf `README.md` (humains).
   `/duel admin arene` pour réparer.
 - Spectateurs : mode spectateur, dégâts annulés (le vide tue même en spectateur), sortis de la
   dimension (menu de téléportation spectateur) → rendus aussitôt.
-- Déconnexion en duel = abandon ; état rendu à la connexion suivante (`JOIN`). Arrêt serveur :
-  rendus en `SERVER_STOPPING`.
+- Déconnexion en duel = abandon ; état rendu à la connexion suivante, **au tick d'après `JOIN`** : Fabric
+  lance `JOIN` avant `PlayerList.placeNewPlayer` → `addNewPlayer` (bytecode 1.21.1) ; téléporter là = joueur
+  dans 2 mondes → crash `DistanceManager.removePlayer` à la déconnexion suivante (live 2026-10-04).
+  `DISCONNECT` peut tourner sur un thread Netty (`channelInactive`) → renvoyé au thread serveur.
+  Arrêt serveur : rendus en `SERVER_STOPPING`.
 - Arène par défaut : schéma Kowal_96 « Blackstone Vault — The Molten Core » (Planet Minecraft,
   `.litematic`, DataVersion 3955, 132×211×132). Non versionné (droits de l'auteur). Coin posé en
   `-73 0 -67` → centre de la croix `0 66 0` (sol y=65 : disque + bras 7 de large au-dessus d'une

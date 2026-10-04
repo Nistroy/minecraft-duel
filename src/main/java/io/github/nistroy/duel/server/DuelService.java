@@ -60,6 +60,8 @@ public final class DuelService {
 	private final Challenges challenges;
 	private final Set<UUID> spectators = new LinkedHashSet<>();
 	private final Map<UUID, String> names = new HashMap<>();
+	/** Revenus avec un état à rendre : rendus au tick suivant, une fois placés dans leur monde. */
+	private final Set<UUID> rejoined = new LinkedHashSet<>();
 	private Match match;
 	/** Arène et kit (nul = chacun son équipement) du duel en cours. */
 	private ArenaSpec arena;
@@ -251,6 +253,7 @@ public final class DuelService {
 			}
 		}
 		tickBuilder();
+		restoreRejoined();
 		if (match == null) {
 			return;
 		}
@@ -272,17 +275,27 @@ public final class DuelService {
 		tickSpectators();
 	}
 
+	/**
+	 * Revenu d'une déconnexion ou d'un crash en plein duel : il retrouve son état d'avant, mais pas ici.
+	 * Fabric lance JOIN avant que PlayerList.placeNewPlayer l'ajoute au monde où il s'est déconnecté :
+	 * le téléporter maintenant le mettrait dans deux mondes (crash serveur à sa déconnexion suivante).
+	 */
 	public void onJoin(ServerPlayer player) {
 		UUID id = player.getUUID();
 		spectators.remove(id);
 		if (store.has(id)) {
-			// Revenu d'une déconnexion ou d'un crash en plein duel : il retrouve son état d'avant.
-			restore(player);
+			rejoined.add(id);
 		}
 	}
 
+	/** Fabric peut lancer DISCONNECT sur un thread réseau (channelInactive) : l'état du duel reste au thread serveur. */
 	public void onDisconnect(ServerPlayer player) {
+		if (!server.isSameThread()) {
+			server.execute(() -> onDisconnect(player));
+			return;
+		}
 		UUID id = player.getUUID();
+		rejoined.remove(id);
 		challenges.removeInvolving(id);
 		spectators.remove(id);
 		menu.forget(id);
@@ -299,6 +312,7 @@ public final class DuelService {
 				restore(player);
 			}
 		}
+		rejoined.clear();
 		spectators.clear();
 		match = null;
 		arena = null;
@@ -451,6 +465,16 @@ public final class DuelService {
 		kit = null;
 		names.clear();
 		for (UUID id : participants) {
+			ServerPlayer player = server.getPlayerList().getPlayer(id);
+			if (player != null) {
+				restore(player);
+			}
+		}
+	}
+
+	private void restoreRejoined() {
+		for (UUID id : List.copyOf(rejoined)) {
+			rejoined.remove(id);
 			ServerPlayer player = server.getPlayerList().getPlayer(id);
 			if (player != null) {
 				restore(player);
