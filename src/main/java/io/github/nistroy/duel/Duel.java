@@ -3,6 +3,7 @@ package io.github.nistroy.duel;
 import io.github.nistroy.duel.config.DuelConfig;
 import io.github.nistroy.duel.network.ArenaPreviewPayload;
 import io.github.nistroy.duel.network.MenuPayload;
+import io.github.nistroy.duel.server.Arena;
 import io.github.nistroy.duel.server.DuelCommand;
 import io.github.nistroy.duel.server.DuelService;
 import io.github.nistroy.duel.server.Kits;
@@ -12,6 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.entity.event.v1.EntityElytraEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.Event;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -58,6 +60,8 @@ public final class Duel implements ModInitializer {
 		ServerLivingEntityEvents.ALLOW_DEATH.addPhaseOrdering(BEFORE_OTHER_MODS, Event.DEFAULT_PHASE);
 		ServerLivingEntityEvents.ALLOW_DEATH.register(BEFORE_OTHER_MODS,
 				(entity, source, amount) -> service == null || service.allowDeath(entity));
+
+		EntityElytraEvents.ALLOW.register(Arena::allowsElytraFlight);
 
 		CommandRegistrationCallback.EVENT.register((dispatcher, registries, environment) ->
 				DuelCommand.register(dispatcher, () -> service, () -> config));

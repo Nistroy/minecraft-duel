@@ -2,6 +2,7 @@ package io.github.nistroy.duel.gametest;
 
 import com.mojang.authlib.GameProfile;
 import io.github.nistroy.duel.config.DuelConfig;
+import io.github.nistroy.duel.server.Arena;
 import io.github.nistroy.duel.server.DuelService;
 import io.github.nistroy.duel.server.Kits;
 import io.github.nistroy.duel.server.PlayerSnapshots;
@@ -139,6 +140,13 @@ public final class DuelGameTests implements FabricGameTest {
 
 		helper.assertTrue(player.position().distanceTo(inArena) < 0.01, "pas de retour pendant JOIN, position lue : " + player.position());
 		helper.assertTrue(store.has(player.getUUID()), "état d'avant duel gardé jusqu'au retour");
+		helper.succeed();
+	}
+
+	/** Le blocage des élytres ne vaut que dans l'arène (dimension absente du serveur GameTest : cas hors arène seulement). */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void elytraFlightStaysAllowedOutsideTheArena(GameTestHelper helper) {
+		helper.assertTrue(Arena.allowsElytraFlight(player(helper)), "vol en élytre permis hors de l'arène");
 		helper.succeed();
 	}
 }

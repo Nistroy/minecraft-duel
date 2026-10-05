@@ -76,6 +76,9 @@ Docs `.md` = notes denses pour agents, sauf `README.md` (humains).
   Riot, dépôt public) : `assets/duel/sounds/its_you_and_me.ogg` (mp3 → ffmpeg encodeur `vorbis`
   natif, `libvorbis` absent), joué aux 2 duellistes à l'entrée (`DuelSounds`, catégorie `VOICE`).
   Jamais enregistré dans le registre : envoyé par id (`playNotifySound` → `Holder.direct`).
+- Pas de vol plané dans `duel:arena` (nistroy 2026-10-05) : `Arena.allowsElytraFlight` sur
+  `EntityElytraEvents.ALLOW`, enregistré en commun → bloque aussi côté client (sinon saccades). Elytra Slot
+  `9.0.1` et Deeper Darker passent par cette API (vérifié dans les jars du serveur).
 - Arènes tierces = config serveur seule (pas dans `default_config.json`). À venir : paris (après test réel).
 - Migration v0.1 → v0.2 : ancien `config/duel.json` à plat → remplacé (champs inconnus ignorés, donc
   défauts) ; `duel admin arene` prend maintenant l'id.

@@ -32,6 +32,15 @@ public final class Arena {
 		return level;
 	}
 
+	/**
+	 * Pas de vol plané dans l'arène, même en mode équipement : l'élytre (torse, emplacement Elytra Slot,
+	 * Élytre des âmes) déciderait du duel. Lu par EntityElytraEvents côté serveur et côté client (sinon le
+	 * client planerait puis serait recalé par le serveur) : d'où la dimension, connue des deux.
+	 */
+	public static boolean allowsElytraFlight(Entity entity) {
+		return !entity.level().dimension().equals(DIMENSION);
+	}
+
 	public static boolean contains(ServerPlayer player) {
 		return player.level().dimension().equals(DIMENSION);
 	}
