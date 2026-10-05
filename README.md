@@ -15,8 +15,9 @@ Mod Fabric pour Minecraft 1.21.1 : des duels entre joueurs dans une arène à pa
   aventure (on se bat, mais sans poser ni casser de blocs).
 - Pas d'élytre dans l'arène : impossible de planer (élytre au torse, dans l'emplacement d'élytre ou
   Élytre des âmes), même en duel avec son propre équipement.
-- Les deux duellistes entendent « It's you and me » (réplique de Valorant) en entrant dans l'arène.
-  Le volume se règle avec le curseur « Voix » des options de son (mod requis côté client).
+- À l'acceptation, les deux duellistes entendent « It's you and me » (réplique de Valorant) sur place,
+  puis partent dans l'arène 2 secondes plus tard ; la suite du son joue à l'arrivée. Le volume se règle
+  avec le curseur « Voix » des options de son (mod requis côté client).
 - Compte à rebours de 3 secondes, puis combat. Le coup fatal ne tue pas : il fait perdre le duel.
   Pas de KO, pas de tombe, rien ne tombe par terre. Sortir de l'arène, c'est aussi perdre.
 - À la fin, tout le monde retrouve exactement son état d'avant, puis revient à sa place :

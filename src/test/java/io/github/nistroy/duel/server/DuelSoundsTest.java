@@ -13,18 +13,20 @@ import org.junit.jupiter.api.Test;
 /** Le serveur joue le son par son id : sans entrée dans sounds.json ni fichier .ogg, le client ne joue rien. */
 class DuelSoundsTest {
 	@Test
-	void startSoundIsDeclaredWithItsFile() throws IOException {
+	void bothSoundPartsAreDeclaredWithTheirFiles() throws IOException {
 		JsonObject sounds;
 		try (InputStream in = resource("/assets/duel/sounds.json")) {
 			sounds = JsonParser.parseReader(new InputStreamReader(in, StandardCharsets.UTF_8)).getAsJsonObject();
 		}
 
-		JsonObject start = sounds.getAsJsonObject(DuelSounds.START);
-		assertNotNull(start, "sounds.json déclare " + DuelSounds.START);
-		String file = start.getAsJsonArray("sounds").get(0).getAsJsonObject().get("name").getAsString();
-		assertEquals("duel:" + DuelSounds.START, file);
-		try (InputStream ogg = resource("/assets/duel/sounds/" + DuelSounds.START + ".ogg")) {
-			assertTrue(ogg.readAllBytes().length > 0, "fichier .ogg non vide");
+		for (String id : new String[] {DuelSounds.ACCEPT, DuelSounds.ARENA}) {
+			JsonObject sound = sounds.getAsJsonObject(id);
+			assertNotNull(sound, "sounds.json déclare " + id);
+			String file = sound.getAsJsonArray("sounds").get(0).getAsJsonObject().get("name").getAsString();
+			assertEquals("duel:" + id, file);
+			try (InputStream ogg = resource("/assets/duel/sounds/" + id + ".ogg")) {
+				assertTrue(ogg.readAllBytes().length > 0, id + ".ogg non vide");
+			}
 		}
 	}
 

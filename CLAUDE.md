@@ -73,9 +73,12 @@ Docs `.md` = notes denses pour agents, sauf `README.md` (humains).
   schémas tiers hors dépôt. Rendu actuel : `~/minecraft-tools/duel/render_preview.py` (iso en coupe,
   hors dépôt ; capture en jeu possible à la place).
 - Son « It's you and me » (Valorant, fichier fourni par nistroy 2026-10-04, assumé malgré droits
-  Riot, dépôt public) : `assets/duel/sounds/its_you_and_me.ogg` (mp3 → ffmpeg encodeur `vorbis`
-  natif, `libvorbis` absent), joué aux 2 duellistes à l'entrée (`DuelSounds`, catégorie `VOICE`).
-  Jamais enregistré dans le registre : envoyé par id (`playNotifySound` → `Holder.direct`).
+  Riot, dépôt public), coupé en 2 à 2,05 s (nistroy 2026-10-05) : `its_you_and_me.ogg` joué sur place à
+  l'acceptation, téléportation `ACCEPT_TICKS` = 41 ticks plus tard (`rules/Departure`), puis
+  `its_you_and_me_arena.ogg`. Pourquoi : `Minecraft.setLevel` → `updateScreenAndTick` → `SoundManager.stop()`
+  au changement de dimension (bytecode 1.21.1) → un son lancé avant la téléportation serait coupé.
+  Déconnexion pendant l'attente = duel annulé. Conversion mp3 → ffmpeg `vorbis` natif (`libvorbis`
+  absent). Catégorie `VOICE`, jamais enregistré dans le registre : envoyé par id (`Holder.direct`).
 - Pas de vol plané dans `duel:arena` (nistroy 2026-10-05) : `Arena.allowsElytraFlight` sur
   `EntityElytraEvents.ALLOW`, enregistré en commun → bloque aussi côté client (sinon saccades). Elytra Slot
   `9.0.1` et Deeper Darker passent par cette API (vérifié dans les jars du serveur).

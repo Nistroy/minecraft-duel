@@ -5,6 +5,7 @@ import io.github.nistroy.duel.config.DuelConfig.ArenaSpec;
 import io.github.nistroy.duel.config.DuelConfig.Spot;
 import io.github.nistroy.duel.network.MenuPayload;
 import io.github.nistroy.duel.rules.Challenges;
+import io.github.nistroy.duel.rules.Departure;
 import io.github.nistroy.duel.rules.Match;
 import io.github.nistroy.duel.rules.Match.Event;
 import io.github.nistroy.duel.rules.Match.Phase;
@@ -63,6 +64,8 @@ public final class DuelService {
 	/** Revenus avec un état à rendre : rendus au tick suivant, une fois placés dans leur monde. */
 	private final Set<UUID> rejoined = new LinkedHashSet<>();
 	private Match match;
+	/** Défi accepté qui attend la fin du premier morceau du son avant la téléportation. */
+	private Departure departure;
 	/** Arène et kit (nul = chacun son équipement) du duel en cours. */
 	private ArenaSpec arena;
 	private Kits.Kit kit;
@@ -131,7 +134,18 @@ public final class DuelService {
 			target.sendSystemMessage(Texts.error("Aucun défi de " + challenger.getGameProfile().getName() + " en attente."));
 			return;
 		}
-		start(challenger, target, challenge.get().terms());
+		Optional<String> problem = match != null || departure != null ? Optional.of("Un duel est déjà en cours, attends la fin.")
+				: unavailable(challenger, false).or(() -> unavailable(target, false));
+		if (problem.isPresent()) {
+			challenger.sendSystemMessage(Texts.error(problem.get()));
+			target.sendSystemMessage(Texts.error(problem.get()));
+			return;
+		}
+		challenges.removeInvolving(challenger.getUUID());
+		challenges.removeInvolving(target.getUUID());
+		departure = Departure.after(challenge.get(), now(), DuelSounds.ACCEPT_TICKS);
+		DuelSounds.playAccept(challenger);
+		DuelSounds.playAccept(target);
 	}
 
 	public void decline(ServerPlayer target, ServerPlayer challenger) {
@@ -184,7 +198,7 @@ public final class DuelService {
 	}
 
 	public Component buildArena(String arenaId) {
-		if (match != null || builder != null) {
+		if (match != null || departure != null || builder != null) {
 			return Texts.error("Impossible pendant un duel ou une construction.");
 		}
 		Optional<ArenaSpec> spec = config.arena(arenaId);
@@ -254,6 +268,11 @@ public final class DuelService {
 		}
 		tickBuilder();
 		restoreRejoined();
+		if (departure != null && departure.isDue(now())) {
+			Departure leaving = departure;
+			departure = null;
+			depart(leaving.challenge());
+		}
 		if (match == null) {
 			return;
 		}
@@ -296,6 +315,15 @@ public final class DuelService {
 		}
 		UUID id = player.getUUID();
 		rejoined.remove(id);
+		if (departure != null && departure.involves(id)) {
+			Challenges.Challenge cancelled = departure.challenge();
+			departure = null;
+			UUID otherId = id.equals(cancelled.challenger()) ? cancelled.target() : cancelled.challenger();
+			ServerPlayer other = server.getPlayerList().getPlayer(otherId);
+			if (other != null) {
+				other.sendSystemMessage(Texts.error(player.getGameProfile().getName() + " s'est déconnecté, duel annulé."));
+			}
+		}
 		challenges.removeInvolving(id);
 		spectators.remove(id);
 		menu.forget(id);
@@ -313,6 +341,7 @@ public final class DuelService {
 			}
 		}
 		rejoined.clear();
+		departure = null;
 		spectators.clear();
 		match = null;
 		arena = null;
@@ -321,6 +350,22 @@ public final class DuelService {
 	}
 
 	// --- Déroulement -----------------------------------------------------------------------------
+
+	/** Fin du premier morceau du son : départ vers l'arène, si les deux sont encore là. */
+	private void depart(Challenges.Challenge challenge) {
+		ServerPlayer challenger = server.getPlayerList().getPlayer(challenge.challenger());
+		ServerPlayer target = server.getPlayerList().getPlayer(challenge.target());
+		if (challenger == null || target == null) {
+			// Déconnexion déjà traitée par onDisconnect ; filet si le joueur a disparu autrement.
+			for (ServerPlayer present : new ServerPlayer[] {challenger, target}) {
+				if (present != null) {
+					present.sendSystemMessage(Texts.error("Ton adversaire n'est plus là, duel annulé."));
+				}
+			}
+			return;
+		}
+		start(challenger, target, challenge.terms());
+	}
 
 	private void start(ServerPlayer challenger, ServerPlayer target, Challenges.Terms terms) {
 		if (match != null) {
@@ -375,8 +420,8 @@ public final class DuelService {
 			return;
 		}
 
-		DuelSounds.playStart(challenger);
-		DuelSounds.playStart(target);
+		DuelSounds.playArena(challenger);
+		DuelSounds.playArena(target);
 		names.put(challenger.getUUID(), challenger.getGameProfile().getName());
 		names.put(target.getUUID(), target.getGameProfile().getName());
 		match = new Match(challenger.getUUID(), target.getUUID(),
@@ -521,7 +566,7 @@ public final class DuelService {
 	private Optional<String> unavailable(ServerPlayer player, boolean self) {
 		UUID id = player.getUUID();
 		String subject = self ? "Tu es" : player.getGameProfile().getName() + " est";
-		if (isDuelist(id) || spectators.contains(id)) {
+		if (isDuelist(id) || spectators.contains(id) || (departure != null && departure.involves(id))) {
 			return Optional.of(subject + " déjà dans un duel.");
 		}
 		if (store.has(id)) {
