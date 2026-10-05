@@ -1,5 +1,8 @@
 {
   "its_you_and_me": {
     "sounds": [{"name": "duel:its_you_and_me"}]
+  },
+  "its_you_and_me_arena": {
+    "sounds": [{"name": "duel:its_you_and_me_arena"}]
   }
 }
